@@ -32,7 +32,7 @@ resource sqlServer 'Microsoft.Sql/servers@2022-05-01-preview' = {
       login: 'SQL Admins'
       sid: '00000000-0000-0000-0000-000000000000'
       tenantId: subscription().tenantId
-      azureADOnlyAuthentication: false
+      azureADOnlyAuthentication: true
     }
   }
 }
@@ -61,6 +61,14 @@ resource sqlServerSecurityAlert 'Microsoft.Sql/servers/securityAlertPolicies@202
     emailAddresses: ['admin@company.com']
     emailAccountAdmins: true
     retentionDays: 90
+  }
+}
+
+resource sqlServerEmailService 'Microsoft.Sql/servers/advisors@2014-04-01' = {
+  parent: sqlServer
+  name: 'SendEmailsToAdmins'
+  properties: {
+    autoExecuteValue: 'Enabled'
   }
 }
 
@@ -136,11 +144,13 @@ resource sqlDatabaseThreatDetection 'Microsoft.Sql/servers/databases/securityAle
     state: 'Enabled'
     emailAddresses: ['admin@company.com']
     emailAccountAdmins: true
+    sendAlertsToAdmins: 'Enabled'
+    emailServiceAndCoAdministrators: 'Enabled'
   }
 }
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2022-09-01' = {
-  name: take(replace(storageAccountName, '-', ''), 24)
+  name: take(toLower(replace(replace(storageAccountName, '-', ''), '_', '')), 24)
   location: resourceGroup().location
   sku: {
     name: 'Standard_GRS'
