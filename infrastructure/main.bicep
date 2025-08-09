@@ -24,6 +24,43 @@ resource sqlServer 'Microsoft.Sql/servers@2022-05-01-preview' = {
     administratorLogin: sqlAdminLogin
     administratorLoginPassword: sqlAdminPassword
     version: '12.0'
+    minimalTlsVersion: '1.2'
+    publicNetworkAccess: 'Disabled'
+    administrators: {
+      administratorType: 'ActiveDirectory'
+      principalType: 'Group'
+      login: 'SQL Admins'
+      sid: '00000000-0000-0000-0000-000000000000'
+      tenantId: subscription().tenantId
+      azureADOnlyAuthentication: false
+    }
+  }
+}
+
+resource sqlServerAudit 'Microsoft.Sql/servers/auditingSettings@2022-05-01-preview' = {
+  parent: sqlServer
+  name: 'default'
+  properties: {
+    state: 'Enabled'
+    retentionDays: 90
+    auditActionsAndGroups: [
+      'SUCCESSFUL_DATABASE_AUTHENTICATION_GROUP'
+      'FAILED_DATABASE_AUTHENTICATION_GROUP'
+      'BATCH_COMPLETED_GROUP'
+    ]
+    storageEndpoint: storageAccount.properties.primaryEndpoints.blob
+    storageAccountAccessKey: storageAccount.listKeys().keys[0].value
+  }
+}
+
+resource sqlServerSecurityAlert 'Microsoft.Sql/servers/securityAlertPolicies@2022-05-01-preview' = {
+  parent: sqlServer
+  name: 'default'
+  properties: {
+    state: 'Enabled'
+    emailAddresses: ['admin@company.com']
+    emailAccountAdmins: true
+    retentionDays: 90
   }
 }
 
@@ -36,9 +73,20 @@ resource applicationGateway 'Microsoft.Network/applicationGateways@2023-02-01' =
       tier: 'Standard_v2'
       capacity: 1
     }
+    sslPolicy: {
+      policyType: 'Predefined'
+      policyName: 'AppGwSslPolicy20220101S'
+    }
     gatewayIPConfigurations: []
     frontendIPConfigurations: []
-    frontendPorts: []
+    frontendPorts: [
+      {
+        name: 'port-443'
+        properties: {
+          port: 443
+        }
+      }
+    ]
     backendAddressPools: [
       {
         name: 'pool-blue'
@@ -68,18 +116,46 @@ resource sqlDatabase 'Microsoft.Sql/servers/databases@2022-05-01-preview' = {
   }
   properties: {
     collation: 'SQL_Latin1_General_CP1_CI_AS'
+    zoneRedundant: true
+  }
+}
+
+resource sqlDatabaseAudit 'Microsoft.Sql/servers/databases/auditingSettings@2022-05-01-preview' = {
+  parent: sqlDatabase
+  name: 'default'
+  properties: {
+    state: 'Enabled'
+    retentionDays: 90
+  }
+}
+
+resource sqlDatabaseThreatDetection 'Microsoft.Sql/servers/databases/securityAlertPolicies@2022-05-01-preview' = {
+  parent: sqlDatabase
+  name: 'default'
+  properties: {
+    state: 'Enabled'
+    emailAddresses: ['admin@company.com']
+    emailAccountAdmins: true
   }
 }
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2022-09-01' = {
-  name: storageAccountName
+  name: take(replace(storageAccountName, '-', ''), 24)
   location: resourceGroup().location
   sku: {
-    name: 'Standard_LRS'
+    name: 'Standard_GRS'
   }
   kind: 'StorageV2'
   properties: {
     accessTier: 'Hot'
+    supportsHttpsTrafficOnly: true
+    minimumTlsVersion: 'TLS1_2'
+    allowBlobPublicAccess: false
+    publicNetworkAccess: 'Disabled'
+    networkAcls: {
+      defaultAction: 'Deny'
+      bypass: 'AzureServices'
+    }
   }
 }
 

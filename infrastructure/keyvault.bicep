@@ -21,8 +21,13 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-02-01' = {
     accessPolicies: []
     enableRbacAuthorization: true
     enableSoftDelete: true
-    softDeleteRetentionInDays: 7
-    enablePurgeProtection: false
+    softDeleteRetentionInDays: 90
+    enablePurgeProtection: true
+    publicNetworkAccess: 'Disabled'
+    networkAcls: {
+      defaultAction: 'Deny'
+      bypass: 'AzureServices'
+    }
   }
 }
 
@@ -32,6 +37,9 @@ resource sqlPasswordSecret 'Microsoft.KeyVault/vaults/secrets@2023-02-01' = {
   properties: {
     value: sqlAdminPassword
     contentType: 'text/plain'
+    attributes: {
+      exp: dateTimeToEpoch(dateTimeAdd(utcNow(), 'P1Y'))
+    }
   }
 }
 
@@ -41,6 +49,9 @@ resource storageSecret 'Microsoft.KeyVault/vaults/secrets@2023-02-01' = {
   properties: {
     value: storageConnectionString
     contentType: 'text/plain'
+    attributes: {
+      exp: dateTimeToEpoch(dateTimeAdd(utcNow(), 'P1Y'))
+    }
   }
 }
 
