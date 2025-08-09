@@ -10,6 +10,9 @@ param environmentSuffix string = 'blue'
 @description('Storage account name')
 param storageAccountName string = 'storage${uniqueString(resourceGroup().id)}'
 
+@description('Alert email addresses')
+param alertEmailAddresses array = ['admin@yourdomain.com']
+
 @description('SQL Administrator login')
 param sqlAdminLogin string
 
@@ -30,7 +33,7 @@ resource sqlServer 'Microsoft.Sql/servers@2022-05-01-preview' = {
       administratorType: 'ActiveDirectory'
       principalType: 'Group'
       login: 'SQL Admins'
-      sid: '00000000-0000-0000-0000-000000000000'
+      sid: '00000000-0000-0000-0000-000000000000' // Replace with actual Azure AD group Object ID
       tenantId: subscription().tenantId
       azureADOnlyAuthentication: true
     }
@@ -53,22 +56,15 @@ resource sqlServerAudit 'Microsoft.Sql/servers/auditingSettings@2022-05-01-previ
   }
 }
 
-resource sqlServerSecurityAlert 'Microsoft.Sql/servers/securityAlertPolicies@2022-05-01-preview' = {
+resource sqlServerSecurityAlertPolicy 'Microsoft.Sql/servers/securityAlertPolicies@2022-05-01-preview' = {
   parent: sqlServer
   name: 'default'
   properties: {
     state: 'Enabled'
-    emailAddresses: ['admin@company.com']
+    emailAddresses: alertEmailAddresses
     emailAccountAdmins: true
     retentionDays: 90
-  }
-}
-
-resource sqlServerEmailService 'Microsoft.Sql/servers/advisors@2014-04-01' = {
-  parent: sqlServer
-  name: 'SendEmailsToAdmins'
-  properties: {
-    autoExecuteValue: 'Enabled'
+    disabledAlerts: []
   }
 }
 
@@ -137,20 +133,20 @@ resource sqlDatabaseAudit 'Microsoft.Sql/servers/databases/auditingSettings@2022
   }
 }
 
-resource sqlDatabaseThreatDetection 'Microsoft.Sql/servers/databases/securityAlertPolicies@2022-05-01-preview' = {
+resource sqlDatabaseSecurityAlertPolicy 'Microsoft.Sql/servers/databases/securityAlertPolicies@2022-05-01-preview' = {
   parent: sqlDatabase
   name: 'default'
   properties: {
     state: 'Enabled'
-    emailAddresses: ['admin@company.com']
+    emailAddresses: alertEmailAddresses
     emailAccountAdmins: true
-    sendAlertsToAdmins: 'Enabled'
-    emailServiceAndCoAdministrators: 'Enabled'
+    retentionDays: 90
+    disabledAlerts: []
   }
 }
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2022-09-01' = {
-  name: take(toLower(replace(replace(storageAccountName, '-', ''), '_', '')), 24)
+  name: take(toLower(replace(replace(replace('${storageAccountName}${environmentSuffix}', '-', ''), '_', ''), ' ', '')), 24)
   location: resourceGroup().location
   sku: {
     name: 'Standard_GRS'

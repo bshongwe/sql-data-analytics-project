@@ -12,6 +12,9 @@
         },
         "secretName": "sql-admin-password"
       }
+    },
+    "alertEmailAddresses": {
+      "value": ["admin@yourdomain.com", "security@yourdomain.com"]
     }
   }
 }
