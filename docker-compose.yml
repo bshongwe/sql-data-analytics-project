@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sql-analytics-db
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=YourStrong@Passw0rd
+      - MSSQL_PID=Developer
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqldata:/var/opt/mssql
+      - ./scripts:/scripts
+      - ./datasets:/datasets
+    networks:
+      - analytics-network
+
+  data-loader:
+    build: 
+      context: .
+      dockerfile: Dockerfile.loader
+    depends_on:
+      - sqlserver
+    environment:
+      - SQL_SERVER=sqlserver
+      - SQL_DATABASE=DataWarehouseAnalytics
+      - SQL_USER=sa
+      - SQL_PASSWORD=YourStrong@Passw0rd
+    volumes:
+      - ./scripts:/app/scripts
+      - ./datasets:/app/datasets
+    networks:
+      - analytics-network
+
+volumes:
+  sqldata:
+
+networks:
+  analytics-network:
+    driver: bridge

@@ -13,6 +13,7 @@ The project follows a modern data warehouse pattern:
 - **🥈 Silver Layer**: Cleaned and transformed data
 - **🥇 Gold Layer**: Business-ready dimensional model
 
+### 🏢 Data Architecture
 ```mermaid
 flowchart TD
     A[📊 Raw Data Sources] --> B[🥉 Bronze Layer]
@@ -43,6 +44,48 @@ flowchart TD
     style C fill:#c0c0c0
     style D fill:#ffd700
     style N fill:#90EE90
+```
+
+### 🔄 Blue-Green Deployment Architecture
+```mermaid
+flowchart LR
+    subgraph "Terraform Orchestration"
+        T[Terraform] --> GH[GitHub Actions API]
+    end
+    
+    subgraph "Blue Environment"
+        B1[SQL Server Blue]
+        B2[Database Blue]
+        B3[Storage Blue]
+    end
+    
+    subgraph "Green Environment"
+        G1[SQL Server Green]
+        G2[Database Green]
+        G3[Storage Green]
+    end
+    
+    subgraph "Traffic Management"
+        AG[Application Gateway]
+        TM[Traffic Manager]
+    end
+    
+    GH --> B1
+    GH --> G1
+    
+    AG --> B1
+    AG --> G1
+    TM --> AG
+    
+    U[Users] --> TM
+    
+    style B1 fill:#87CEEB
+    style B2 fill:#87CEEB
+    style B3 fill:#87CEEB
+    style G1 fill:#90EE90
+    style G2 fill:#90EE90
+    style G3 fill:#90EE90
+    style T fill:#FFD700
 ```
 
 ### 📋 Database Schema
@@ -81,27 +124,31 @@ flowchart TD
 
 ## 🚀 Getting Started
 
-### Prerequisites
-- SQL Server (2019 or later recommended)
-- SQL Server Management Studio (SSMS) or Azure Data Studio
-- Sample datasets (included in `/datasets/csv-files/`)
+### 🔧 Local Development
+```bash
+# Start local environment
+docker-compose up -d
 
-### 🔧 Setup Instructions
+# Access SQL Server
+docker exec -it sql-analytics-db /opt/mssql-tools/bin/sqlcmd -S localhost -U sa
+```
 
-1. **Initialize Database**
-   ```sql
-   -- Run the initialization script
-   -- ⚠️ WARNING: This will drop existing 'DataWarehouseAnalytics' database
-   EXEC scripts/00_init_database.sql
-   ```
+### ☁️ Cloud Deployment (One-Click Blue-Green)
+```bash
+# Deploy to blue environment
+./deploy.sh blue deploy
 
-2. **Load Sample Data**
-   - Update file paths in `00_init_database.sql` to match your CSV file locations
-   - Execute the script to create tables and load data
+# Switch traffic to green
+./deploy.sh green switch
 
-3. **Run Analysis Scripts**
-   - Execute scripts in numerical order (01-13)
-   - Each script is self-contained and documented
+# Rollback if needed
+./deploy.sh blue rollback
+```
+
+### 📋 Prerequisites
+- **Local**: Docker, Docker Compose
+- **Cloud**: Azure CLI, Terraform, GitHub Token
+- **Optional**: SQL Server Management Studio (SSMS)
 
 ## 📊 Analysis Categories
 

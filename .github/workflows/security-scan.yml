@@ -1,0 +1,72 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 2 * * 1'  # Weekly scan
+
+jobs:
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    
+    - name: Run TruffleHog
+      uses: trufflesecurity/trufflehog@main
+      with:
+        path: ./
+        base: main
+        head: HEAD
+        extra_args: --debug --only-verified
+
+  sql-security-scan:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Scan SQL Files for Security Issues
+      run: |
+        echo "Scanning SQL files for security vulnerabilities..."
+        
+        # Check for hardcoded credentials
+        if grep -r -i "password\s*=" scripts/ --include="*.sql"; then
+          echo "ERROR: Hardcoded passwords found"
+          exit 1
+        fi
+        
+        # Check for SQL injection patterns
+        if grep -r -i "exec\s*(" scripts/ --include="*.sql"; then
+          echo "WARNING: Dynamic SQL execution found"
+        fi
+        
+        # Check for unsafe functions
+        if grep -r -i "xp_cmdshell\|sp_configure" scripts/ --include="*.sql"; then
+          echo "ERROR: Unsafe SQL functions found"
+          exit 1
+        fi
+        
+        echo "SQL security scan completed"
+
+  infrastructure-scan:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Run Checkov
+      uses: bridgecrewio/checkov-action@master
+      with:
+        directory: infrastructure/
+        framework: bicep,terraform
+        output_format: sarif
+        output_file_path: reports/results.sarif
+    
+    - name: Upload SARIF file
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: reports/results.sarif

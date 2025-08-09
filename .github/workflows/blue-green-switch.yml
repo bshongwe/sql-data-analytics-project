@@ -1,0 +1,68 @@
+name: Blue-Green Traffic Switch
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_environment:
+        description: 'Switch traffic to environment'
+        required: true
+        type: choice
+        options:
+        - blue
+        - green
+      action:
+        description: 'Action to perform'
+        required: true
+        type: choice
+        options:
+        - switch
+        - rollback
+
+jobs:
+  switch-traffic:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    
+    - name: Update Traffic Manager
+      run: |
+        TARGET_ENV=${{ github.event.inputs.target_environment }}
+        ACTION=${{ github.event.inputs.action }}
+        
+        echo "Performing $ACTION to $TARGET_ENV environment"
+        
+        # Update Application Gateway or Traffic Manager
+        az network application-gateway url-path-map rule update \
+          --resource-group rg-sql-analytics \
+          --gateway-name ag-sql-analytics \
+          --path-map-name path-map \
+          --name default \
+          --backend-pool "pool-$TARGET_ENV"
+        
+        echo "Traffic switched to $TARGET_ENV environment"
+    
+    - name: Health Check
+      run: |
+        TARGET_ENV=${{ github.event.inputs.target_environment }}
+        
+        # Wait for health check
+        sleep 30
+        
+        # Verify deployment health
+        HEALTH_STATUS=$(az sql db show \
+          --resource-group rg-sql-analytics \
+          --server "sql-analytics-$TARGET_ENV" \
+          --name "DataWarehouseAnalytics-$TARGET_ENV" \
+          --query "status" -o tsv)
+        
+        if [ "$HEALTH_STATUS" != "Online" ]; then
+          echo "Health check failed for $TARGET_ENV"
+          exit 1
+        fi
+        
+        echo "Health check passed for $TARGET_ENV environment"

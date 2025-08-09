@@ -1,0 +1,16 @@
+FROM mcr.microsoft.com/mssql-tools18:latest
+
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY scripts/ ./scripts/
+COPY datasets/ ./datasets/
+
+# Wait for SQL Server to be ready
+COPY wait-for-sql.sh ./
+RUN chmod +x wait-for-sql.sh
+
+CMD ["./wait-for-sql.sh"]

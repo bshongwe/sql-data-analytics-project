@@ -1,0 +1,13 @@
+# Blue-Green Deployment Configuration
+target_environment = "blue"
+trigger_deployment = true
+switch_traffic     = true
+
+# GitHub Configuration
+github_token = "ghp_xxxxxxxxxxxxxxxxxxxx"
+github_repo  = "your-username/sql-data-analytics-project"
+
+# Azure Configuration
+location = "East US"
+sql_admin_login = "sqladmin"
+sql_admin_password = "YourSecurePassword123!"

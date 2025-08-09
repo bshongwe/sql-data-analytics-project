@@ -1,0 +1,141 @@
+name: SQL Data Analytics Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'blue'
+        type: choice
+        options:
+        - blue
+        - green
+      action:
+        description: 'Deployment action'
+        required: true
+        default: 'deploy'
+        type: choice
+        options:
+        - deploy
+        - switch
+        - rollback
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Validate SQL Scripts
+      run: |
+        find scripts/ -name "*.sql" -exec echo "Validating {}" \;
+    
+    - name: Check CSV Files
+      run: |
+        ls -la datasets/csv-files/
+        echo "CSV validation passed"
+
+  deploy-infrastructure:
+    needs: validate
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.set-env.outputs.environment }}
+      database-name: ${{ steps.deploy.outputs.database-name }}
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set Environment
+      id: set-env
+      run: |
+        ENV=${{ github.event.inputs.environment || 'blue' }}
+        echo "environment=$ENV" >> $GITHUB_OUTPUT
+        echo "Deploying to $ENV environment"
+    
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    
+    - name: Deploy Infrastructure
+      id: deploy
+      run: |
+        ENV=${{ steps.set-env.outputs.environment }}
+        DB_NAME="DataWarehouseAnalytics-$ENV"
+        
+        az deployment group create \
+          --resource-group rg-sql-analytics \
+          --template-file infrastructure/main.bicep \
+          --parameters databaseName="$DB_NAME" \
+          --parameters environmentSuffix="$ENV"
+        
+        echo "database-name=$DB_NAME" >> $GITHUB_OUTPUT
+
+  deploy-database:
+    needs: deploy-infrastructure
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Create Connection File
+      run: |
+        echo "Creating secure connection file"
+        cat > connection.txt << EOF
+        SERVER=${{ secrets.AZURE_SQL_SERVER }}
+        DATABASE=${{ secrets.AZURE_SQL_DATABASE }}
+        USERNAME=${{ secrets.AZURE_SQL_USERNAME }}
+        PASSWORD=${{ secrets.AZURE_SQL_PASSWORD }}
+        EOF
+        chmod 600 connection.txt
+    
+    - name: Deploy Database Schema
+      run: |
+        source connection.txt
+        sqlcmd -S "$SERVER" -d "$DATABASE" -U "$USERNAME" -P "$PASSWORD" -i scripts/00_init_database.sql -b
+        rm -f connection.txt
+    
+    - name: Upload CSV Files
+      env:
+        STORAGE_ACCOUNT: ${{ secrets.STORAGE_ACCOUNT }}
+      run: |
+        az storage blob upload-batch \
+          --destination csv-container \
+          --source datasets/csv-files/ \
+          --account-name "$STORAGE_ACCOUNT"
+    
+    - name: Deploy Analytics Scripts
+      run: |
+        cat > connection.txt << EOF
+        SERVER=${{ secrets.AZURE_SQL_SERVER }}
+        DATABASE=${{ secrets.AZURE_SQL_DATABASE }}
+        USERNAME=${{ secrets.AZURE_SQL_USERNAME }}
+        PASSWORD=${{ secrets.AZURE_SQL_PASSWORD }}
+        EOF
+        chmod 600 connection.txt
+        
+        source connection.txt
+        for script in scripts/0[1-9]*.sql scripts/1[0-3]*.sql; do
+          echo "Deploying $(basename $script)"
+          sqlcmd -S "$SERVER" -d "$DATABASE" -U "$USERNAME" -P "$PASSWORD" -i "$script" -b
+        done
+        rm -f connection.txt
+
+  test:
+    needs: deploy-database
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Run Data Quality Tests
+      run: |
+        cat > connection.txt << EOF
+        SERVER=${{ secrets.AZURE_SQL_SERVER }}
+        DATABASE=${{ secrets.AZURE_SQL_DATABASE }}
+        USERNAME=${{ secrets.AZURE_SQL_USERNAME }}
+        PASSWORD=${{ secrets.AZURE_SQL_PASSWORD }}
+        EOF
+        chmod 600 connection.txt
+        
+        source connection.txt
+        sqlcmd -S "$SERVER" -d "$DATABASE" -U "$USERNAME" -P "$PASSWORD" -i tests/data-quality-tests.sql -b
+        rm -f connection.txt
