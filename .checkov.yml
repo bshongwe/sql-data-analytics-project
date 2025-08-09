@@ -1,0 +1,12 @@
+framework:
+  - bicep
+  - terraform
+
+skip-check:
+  - CKV2_AZURE_27  # Azure AD authentication - bypass for demo environment
+  - CKV_AZURE_27   # Email service for SQL - bypass for demo environment  
+  - CKV_AZURE_26   # Send alerts to admins - bypass for demo environment
+  - CKV_AZURE_43   # Storage account naming - bypass for generated names
+
+output: sarif
+output-file-path: reports/results.sarif

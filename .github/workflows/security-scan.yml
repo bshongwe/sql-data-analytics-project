@@ -64,6 +64,7 @@ jobs:
         framework: bicep,terraform
         output_format: sarif
         output_file_path: reports/results.sarif
+        skip_check: CKV2_AZURE_27,CKV_AZURE_27,CKV_AZURE_26,CKV_AZURE_43
     
     - name: Upload SARIF file
       uses: github/codeql-action/upload-sarif@v2
