@@ -207,31 +207,35 @@ graph TB
 ## 🚀 Deployment Pipeline Architecture
 
 ```mermaid
-gitgraph
-    commit id: "Initial"
-    branch blue
-    checkout blue
-    commit id: "Deploy Blue"
-    commit id: "Test Blue"
-    checkout main
-    merge blue
-    commit id: "Blue Live"
+flowchart TD
+    A[📦 Initial Deployment] --> B{🔄 Environment Selection}
     
-    branch green
-    checkout green
-    commit id: "Deploy Green"
-    commit id: "Test Green"
-    commit id: "Switch Traffic"
-    checkout main
-    merge green
-    commit id: "Green Live"
+    B -->|Blue| C1[🔵 Deploy Blue Environment]
+    B -->|Green| C2[🟢 Deploy Green Environment]
     
-    branch hotfix
-    checkout hotfix
-    commit id: "Rollback Blue"
-    checkout main
-    merge hotfix
-    commit id: "Blue Restored"
+    C1 --> D1[🧪 Test Blue]
+    C2 --> D2[🧪 Test Green]
+    
+    D1 --> E1[✅ Blue Live]
+    D2 --> E2[✅ Green Live]
+    
+    E1 --> F[🔄 Traffic Switch]
+    E2 --> F
+    
+    F --> G[🌐 Production Traffic]
+    
+    G --> H{❓ Issues Detected?}
+    H -->|No| I[✨ Deployment Success]
+    H -->|Yes| J[⏪ Rollback]
+    
+    J --> K[🔄 Switch to Previous Environment]
+    K --> L[🛡️ Service Restored]
+    
+    style C1 fill:#87CEEB
+    style C2 fill:#90EE90
+    style I fill:#98FB98
+    style J fill:#FFB6C1
+    style L fill:#DDA0DD
 ```
 
 ## 📈 Monitoring Architecture
