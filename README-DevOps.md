@@ -90,7 +90,7 @@ flowchart TD
     H -->|Yes| I[✨ Deployment Complete]
     H -->|No| J[⏪ Automatic Rollback]
     
-    J --> K[🔴 Previous Environment Active]
+    J --> K[🔴 Previous Environment Now Active - Service Restored]
     
     style D1 fill:#87CEEB
     style D2 fill:#90EE90
