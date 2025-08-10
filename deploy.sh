@@ -58,4 +58,4 @@ case $ACTION in
 esac
 
 echo "✅ Deployment completed successfully!"
-echo "🌐 Monitor deployment: https://github.com/your-repo/actions"
+echo "🌐 Monitor deployment: https://github.com/bshongwe/sql-data-analytics-project/actions"
